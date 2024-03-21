@@ -23,6 +23,18 @@ contract ERC721Locker {
     error InvalidLockDuration();
 
     /**
+     * @notice Get lock details for an owner-token pair.
+     * @param  owner  address  Account which can withdraw the token after the lock expires.
+     * @param  token  address  ERC721 token contract address.
+     */
+    function getLock(
+        address owner,
+        address token
+    ) external view returns (LockDetails memory) {
+        return locks[owner][token];
+    }
+
+    /**
      * @notice Lock an ERC721 token for a specified duration.
      * @param  to            address  Account which can withdraw the token after the lock expires.
      * @param  token         address  ERC721 token contract address.
