@@ -19,6 +19,9 @@ contract ERC721Locker {
         uint256 expiry
     );
 
+    error InvalidAddress();
+    error InvalidLockDuration();
+
     /**
      * @notice Lock an ERC721 token for a specified duration.
      * @param  to            address  Account which can withdraw the token after the lock expires.
@@ -32,6 +35,10 @@ contract ERC721Locker {
         uint256 id,
         uint256 lockDuration
     ) external {
+        if (to == address(0)) revert InvalidAddress();
+        if (lockDuration == 0) revert InvalidLockDuration();
+
+        // Will revert if the token is the zero address, or if `msg.sender` does not own `id`.
         ERC721(token).transferFrom(msg.sender, address(this), id);
 
         uint256 expiry = block.timestamp + lockDuration;
