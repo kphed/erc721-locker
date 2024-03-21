@@ -3,6 +3,11 @@ pragma solidity ^0.8.0;
 
 import {ERC721} from "solady/tokens/ERC721.sol";
 
+/**
+ * @title ERC721 locker.
+ * @notice Lock your ERC721 tokens (e.g. Uniswap V3 LP NFTs) for a specified duration.
+ * @author kp
+ */
 contract ERC721Locker {
     // Key is the hashed packed abi-encoded owner, token address, and token ID.
     mapping(bytes32 key => uint256 expiry) public locks;
