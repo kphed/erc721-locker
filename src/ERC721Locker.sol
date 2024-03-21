@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import {ERC721} from "solady/tokens/ERC721.sol";
 
 contract ERC721Locker {
-    // Key is the packed abi-encoded hash of the owner, token address, and token ID.
+    // Key is the hashed packed abi-encoded owner, token address, and token ID.
     mapping(bytes32 key => uint256 expiry) public locks;
 
     event Lock(
