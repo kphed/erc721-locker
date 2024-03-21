@@ -18,6 +18,8 @@ contract ERC721Locker {
 
     error InvalidAddress();
     error InvalidLockDuration();
+    error LockDoesNotExist();
+    error LockNotExpired();
 
     /**
      * @notice Lock an ERC721 token for a specified duration.
@@ -42,5 +44,24 @@ contract ERC721Locker {
         locks[keccak256(abi.encodePacked(owner, token, id))] = expiry;
 
         emit Lock(msg.sender, owner, token, id, expiry);
+    }
+
+    /**
+     * @notice Unlock and withdraw an ERC721 token after its lock expiry has passed.
+     * @param  token  address  ERC721 token contract address.
+     * @param  id     uint256  Token ID.
+     */
+    function unlock(address token, uint256 id) external {
+        bytes32 key = keccak256(abi.encodePacked(msg.sender, token, id));
+        uint256 expiry = locks[key];
+
+        if (expiry == 0) revert LockDoesNotExist();
+        if (expiry > block.timestamp) revert LockNotExpired();
+
+        delete locks[key];
+
+        ERC721(token).safeTransferFrom(address(this), msg.sender, id);
+
+        emit Unlock(msg.sender, token, id);
     }
 }
