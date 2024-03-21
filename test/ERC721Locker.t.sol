@@ -34,7 +34,7 @@ contract ERC721LockerTest is Test {
         uint256,
         bytes calldata
     ) external pure returns (bytes4) {
-        return this.onERC721Received.selector;
+        return ERC721LockerTest.onERC721Received.selector;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -277,13 +277,13 @@ contract ERC721LockerTest is Test {
 
     function testUnlockFuzz(
         address msgSender,
-        address owner,
         uint256 id,
         uint256 lockDuration
     ) external {
-        vm.assume(msgSender != address(0) && owner != address(0));
+        vm.assume(msgSender != address(0));
 
         lockDuration = bound(lockDuration, 1, 10_000 days);
+        address owner = address(this);
         address token = address(testToken);
 
         testToken.mint(msgSender, id);
@@ -302,7 +302,7 @@ contract ERC721LockerTest is Test {
 
         assertGt(block.timestamp, expiry);
 
-        vm.startPrank(owner);
+        vm.prank(owner);
         vm.expectEmit(true, true, true, true, address(locker));
 
         emit ERC721Locker.Unlock(owner, token, id);
@@ -315,10 +315,9 @@ contract ERC721LockerTest is Test {
             locker.locks(keccak256(abi.encodePacked(owner, token, id)))
         );
 
+        vm.prank(owner);
         vm.expectRevert(ERC721Locker.LockDoesNotExist.selector);
 
         locker.unlock(token, id);
-
-        vm.stopPrank();
     }
 }
