@@ -37,6 +37,10 @@ contract ERC721LockerTest is Test {
         return this.onERC721Received.selector;
     }
 
+    /*//////////////////////////////////////////////////////////////
+                                lock
+    //////////////////////////////////////////////////////////////*/
+
     function testCannotLockInvalidAddress() external {
         address owner = address(0);
         address token = address(testToken);
@@ -86,7 +90,7 @@ contract ERC721LockerTest is Test {
     }
 
     function testCannotLockTransferFromIncorrectOwner() external {
-        address from = address(0);
+        address msgSender = address(0);
         address owner = address(this);
         address token = address(testToken);
         uint256 id = 0;
@@ -94,9 +98,9 @@ contract ERC721LockerTest is Test {
 
         testToken.mint(address(this), id);
 
-        assertTrue(testToken.ownerOf(id) != from);
+        assertTrue(testToken.ownerOf(id) != msgSender);
 
-        vm.prank(from);
+        vm.prank(msgSender);
         vm.expectRevert(ERC721.TransferFromIncorrectOwner.selector);
 
         locker.lock(owner, token, id, lockDuration);
@@ -127,26 +131,26 @@ contract ERC721LockerTest is Test {
     }
 
     function testLockFuzz(
-        address from,
+        address msgSender,
         address to,
         uint256 id,
         uint256 lockDuration
     ) external {
-        vm.assume(from != address(0) && to != address(0));
+        vm.assume(msgSender != address(0) && to != address(0));
 
         lockDuration = bound(lockDuration, 1, 10_000 days);
         address token = address(testToken);
         uint256 expiry = block.timestamp + lockDuration;
 
-        testToken.mint(from, id);
+        testToken.mint(msgSender, id);
 
-        vm.startPrank(from);
+        vm.startPrank(msgSender);
 
         testToken.setApprovalForAll(address(locker), true);
 
         vm.expectEmit(true, true, true, true, address(locker));
 
-        emit ERC721Locker.Lock(from, to, token, id, expiry);
+        emit ERC721Locker.Lock(msgSender, to, token, id, expiry);
 
         locker.lock(to, token, id, lockDuration);
 
@@ -162,28 +166,28 @@ contract ERC721LockerTest is Test {
     }
 
     function testLockFuzzMultipleQuantity(
-        address from,
+        address msgSender,
         address owner,
         uint256 quantity,
         uint256 lockDuration
     ) external {
-        vm.assume(from != address(0) && owner != address(0));
+        vm.assume(msgSender != address(0) && owner != address(0));
 
         quantity = bound(quantity, 1, 25);
         lockDuration = bound(lockDuration, 1, 10_000 days);
         address token = address(testToken);
         uint256 expiry = block.timestamp + lockDuration;
 
-        vm.startPrank(from);
+        vm.startPrank(msgSender);
 
         for (uint256 id = 0; id < quantity; ++id) {
-            testToken.mint(from, id);
+            testToken.mint(msgSender, id);
 
             testToken.setApprovalForAll(address(locker), true);
 
             vm.expectEmit(true, true, true, true, address(locker));
 
-            emit ERC721Locker.Lock(from, owner, token, id, expiry);
+            emit ERC721Locker.Lock(msgSender, owner, token, id, expiry);
 
             locker.lock(owner, token, id, lockDuration);
         }
@@ -201,6 +205,10 @@ contract ERC721LockerTest is Test {
             assertLt(0, expiry);
         }
     }
+
+    /*//////////////////////////////////////////////////////////////
+                                unlock
+    //////////////////////////////////////////////////////////////*/
 
     function testCannotUnlockLockDoesNotExist() external {
         address token = address(testToken);
