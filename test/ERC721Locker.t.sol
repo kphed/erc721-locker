@@ -28,40 +28,40 @@ contract ERC721LockerTest is Test {
     ERC721Locker public immutable locker = new ERC721Locker();
 
     function testCannotLockInvalidAddress() external {
-        address to = address(0);
+        address owner = address(0);
         address token = address(testToken);
         uint256 id = 0;
         uint256 lockDuration = 1 days;
 
         vm.expectRevert(ERC721Locker.InvalidAddress.selector);
 
-        locker.lock(to, token, id, lockDuration);
+        locker.lock(owner, token, id, lockDuration);
     }
 
     function testCannotLockInvalidLockDuration() external {
-        address to = address(this);
+        address owner = address(this);
         address token = address(testToken);
         uint256 id = 0;
         uint256 lockDuration = 0;
 
         vm.expectRevert(ERC721Locker.InvalidLockDuration.selector);
 
-        locker.lock(to, token, id, lockDuration);
+        locker.lock(owner, token, id, lockDuration);
     }
 
     function testCannotLockInvalidToken() external {
-        address to = address(this);
+        address owner = address(this);
         address token = address(0);
         uint256 id = 0;
         uint256 lockDuration = 1 days;
 
         vm.expectRevert();
 
-        locker.lock(to, token, id, lockDuration);
+        locker.lock(owner, token, id, lockDuration);
     }
 
     function testCannotLockTokenDoesNotExist() external {
-        address to = address(this);
+        address owner = address(this);
         address token = address(testToken);
         uint256 id = 0;
         uint256 lockDuration = 1 days;
@@ -72,12 +72,12 @@ contract ERC721LockerTest is Test {
 
         vm.expectRevert(ERC721.TokenDoesNotExist.selector);
 
-        locker.lock(to, token, id, lockDuration);
+        locker.lock(owner, token, id, lockDuration);
     }
 
     function testCannotLockTransferFromIncorrectOwner() external {
         address from = address(0);
-        address to = address(this);
+        address owner = address(this);
         address token = address(testToken);
         uint256 id = 0;
         uint256 lockDuration = 1 days;
@@ -89,11 +89,11 @@ contract ERC721LockerTest is Test {
         vm.prank(from);
         vm.expectRevert(ERC721.TransferFromIncorrectOwner.selector);
 
-        locker.lock(to, token, id, lockDuration);
+        locker.lock(owner, token, id, lockDuration);
     }
 
     function testLock() external {
-        address to = address(0xbeef);
+        address owner = address(0xbeef);
         address token = address(testToken);
         uint256 id = 0;
         uint256 lockDuration = 1 days;
@@ -104,15 +104,16 @@ contract ERC721LockerTest is Test {
 
         vm.expectEmit(true, true, true, true, address(locker));
 
-        emit ERC721Locker.Lock(address(this), to, token, id, expiry);
+        emit ERC721Locker.Lock(address(this), owner, token, id, expiry);
 
-        locker.lock(to, token, id, lockDuration);
+        locker.lock(owner, token, id, lockDuration);
 
-        ERC721Locker.LockDetails memory lockDetails = locker.getLock(to, token);
+        uint256 lockExpiry = locker.locks(
+            keccak256(abi.encodePacked(owner, token, id))
+        );
 
         assertEq(address(locker), testToken.ownerOf(id));
-        assertEq(id, lockDetails.id);
-        assertEq(expiry, lockDetails.expiry);
+        assertEq(expiry, lockExpiry);
     }
 
     function testLockFuzz(
@@ -141,10 +142,53 @@ contract ERC721LockerTest is Test {
 
         vm.stopPrank();
 
-        ERC721Locker.LockDetails memory lockDetails = locker.getLock(to, token);
+        uint256 lockExpiry = locker.locks(
+            keccak256(abi.encodePacked(to, token, id))
+        );
 
         assertEq(address(locker), testToken.ownerOf(id));
-        assertEq(id, lockDetails.id);
-        assertEq(expiry, lockDetails.expiry);
+        assertEq(expiry, lockExpiry);
+        assertLt(0, expiry);
+    }
+
+    function testLockFuzzMultipleQuantity(
+        address from,
+        address owner,
+        uint256 quantity,
+        uint256 lockDuration
+    ) external {
+        vm.assume(from != address(0) && owner != address(0));
+
+        quantity = bound(quantity, 1, 25);
+        lockDuration = bound(lockDuration, 1, 10_000 days);
+        address token = address(testToken);
+        uint256 expiry = block.timestamp + lockDuration;
+
+        vm.startPrank(from);
+
+        for (uint256 id = 0; id < quantity; ++id) {
+            testToken.mint(from, id);
+
+            testToken.setApprovalForAll(address(locker), true);
+
+            vm.expectEmit(true, true, true, true, address(locker));
+
+            emit ERC721Locker.Lock(from, owner, token, id, expiry);
+
+            locker.lock(owner, token, id, lockDuration);
+        }
+
+        vm.stopPrank();
+
+        // Separate loop to check that all lock expiries exist and were not overridden.
+        for (uint256 id = 0; id < quantity; ++id) {
+            uint256 lockExpiry = locker.locks(
+                keccak256(abi.encodePacked(owner, token, id))
+            );
+
+            assertEq(address(locker), testToken.ownerOf(id));
+            assertEq(expiry, lockExpiry);
+            assertLt(0, expiry);
+        }
     }
 }
